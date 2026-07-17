@@ -175,7 +175,7 @@ def get_nearby_hospitals(lat: float, lon: float, radius: int = 15000) -> list:
     hospitals = []
     try:
         headers = {'User-Agent': 'BloodRadarBot/1.0'}
-        response = requests.post(overpass_url, data={'data': overpass_query}, headers=headers)
+        response = requests.post(overpass_url, data=overpass_query.encode('utf-8'), headers=headers)
         data = response.json()
         
         for element in data.get('elements', []):
