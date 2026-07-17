@@ -4,9 +4,8 @@ import requests
 import json
 import asyncio
 from dotenv import load_dotenv
-from pydub import AudioSegment
 import imageio_ffmpeg
-AudioSegment.converter = imageio_ffmpeg.get_ffmpeg_exe()
+import subprocess
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler, CallbackQueryHandler
 from twilio.rest import Client
@@ -82,8 +81,8 @@ async def receive_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     await voice_file.download_to_drive(ogg_path)
     
     await update.message.reply_text("🔄 Processing your voice message...")
-    audio = AudioSegment.from_ogg(ogg_path)
-    audio.export(mp3_path, format="mp3")
+    ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+    subprocess.run([ffmpeg_exe, '-i', ogg_path, mp3_path, '-y'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     
     with open(mp3_path, 'rb') as f:
         msg = await update.message.reply_audio(audio=f, caption="Your audio is ready to be played to the hospital.")
