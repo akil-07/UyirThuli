@@ -107,7 +107,12 @@ async def receive_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                 # We use Twilio's TwiML to speak a message. 
                 twiml_script = f"""
                 <Response>
-                    <Say voice="alice">Urgent message from Blood Radar. A patient named {context.user_data['name']} critically needs {context.user_data['blood_type']} blood. We are calling {hospital['name']}. Please check your inventory immediately.</Say>
+                    <Say voice="Polly.Joanna-Neural">
+                        Urgent message from Blood Radar! 
+                        A patient named {context.user_data['name']}, critically needs {context.user_data['blood_type']} blood. 
+                        We are calling {hospital['name']}. 
+                        Please check your blood bank inventory, immediately.
+                    </Say>
                 </Response>
                 """
                 call = client.calls.create(
