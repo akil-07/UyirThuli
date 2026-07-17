@@ -21,8 +21,9 @@ A patient named {name} critically needs {blood_type} blood.
 You just played a voice note from the patient to the hospital staff.
 The hospital staff is now speaking to you. You must answer them briefly, politely, and urgently.
 Keep your responses very short (1-2 sentences) so it flows naturally on a phone call.
-Your goal is to figure out if they have {blood_type} blood in stock, and tell them you will inform the patient.
-Once you have your answer (either yes or no), you MUST end your final response with exactly the word "Goodbye."
+Your goal is to figure out if they have {blood_type} blood in stock.
+If they ask you to wait or hold on while they check the inventory, DO NOT say Goodbye. Tell them you will wait on the line.
+Only when they give you a definitive answer (either YES they have it, or NO they don't), you MUST thank them and end your final response with exactly the word "Goodbye."
 """
 
 @app.route('/twilio_start', methods=['GET', 'POST'])
@@ -47,7 +48,7 @@ def twilio_start():
         Here is a voice message from the patient:
     </Say>
     <Play>{voice_url}</Play>
-    <Gather input="speech" action="{gather_url}" method="POST" timeout="3" speechTimeout="auto">
+    <Gather input="speech" action="{gather_url}" method="POST" timeout="8" speechTimeout="auto">
         <Say voice="alice">
             Hello? Are you there? Please tell me if you have {blood_type} blood available.
         </Say>
@@ -71,7 +72,7 @@ def twilio_gather():
         gather_url = f"/twilio_gather?{encoded_args}".replace('&', '&amp;')
         twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-    <Gather input="speech" action="{gather_url}" method="POST" timeout="3" speechTimeout="auto">
+    <Gather input="speech" action="{gather_url}" method="POST" timeout="8" speechTimeout="auto">
         <Say voice="alice">I didn't catch that. Do you have {blood_type} blood available?</Say>
     </Gather>
 </Response>""".strip()
@@ -108,7 +109,7 @@ def twilio_gather():
     else:
         twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-    <Gather input="speech" action="{gather_url}" method="POST" timeout="3" speechTimeout="auto">
+    <Gather input="speech" action="{gather_url}" method="POST" timeout="8" speechTimeout="auto">
         <Say voice="alice">{ai_text}</Say>
     </Gather>
 </Response>""".strip()
