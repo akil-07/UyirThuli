@@ -77,21 +77,21 @@ async def receive_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     voice_file = await update.message.voice.get_file()
     
     ogg_path = f"voice_{update.message.message_id}.ogg"
-    mp3_path = f"voice_{update.message.message_id}.mp3"
+    wav_path = f"voice_{update.message.message_id}.wav"
     await voice_file.download_to_drive(ogg_path)
     
-    await update.message.reply_text("🔄 Processing your voice message...")
+    await update.message.reply_text("🔄 Processing your voice message for perfect phone quality...")
     ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
-    subprocess.run([ffmpeg_exe, '-i', ogg_path, '-ac', '1', '-ar', '8000', mp3_path, '-y'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run([ffmpeg_exe, '-i', ogg_path, '-ac', '1', '-ar', '8000', '-c:a', 'pcm_s16le', wav_path, '-y'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     
-    with open(mp3_path, 'rb') as f:
+    with open(wav_path, 'rb') as f:
         msg = await update.message.reply_audio(audio=f, caption="Your audio is ready to be played to the hospital.")
         
-    mp3_file = await context.bot.get_file(msg.audio.file_id)
-    context.user_data['voice_url'] = mp3_file.file_path
+    audio_file = await context.bot.get_file(msg.audio.file_id)
+    context.user_data['voice_url'] = audio_file.file_path
     
     os.remove(ogg_path)
-    os.remove(mp3_path)
+    os.remove(wav_path)
     
     location_button = KeyboardButton(text="📍 Share Live Location", request_location=True)
     markup = ReplyKeyboardMarkup([[location_button]], one_time_keyboard=True, resize_keyboard=True)
