@@ -4,3 +4,4 @@ twilio==9.0.4
 python-dotenv==1.0.1
 pydub==0.25.1
 imageio-ffmpeg==0.4.9
+audioop-lts==0.2.2
