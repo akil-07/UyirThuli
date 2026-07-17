@@ -221,7 +221,14 @@ def main():
         logger.error("Please set TELEGRAM_BOT_TOKEN in .env")
         return
         
-    application = ApplicationBuilder().token(token).build()
+    application = (
+        ApplicationBuilder()
+        .token(token)
+        .connect_timeout(60.0)
+        .read_timeout(60.0)
+        .write_timeout(60.0)
+        .build()
+    )
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('sos', start_sos)],
