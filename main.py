@@ -77,28 +77,37 @@ async def receive_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     voice_file = await update.message.voice.get_file()
     
     ogg_path = f"voice_{update.message.message_id}.ogg"
-    mp3_path = f"voice_{update.message.message_id}.mp3"
+    wav_path = f"voice_{update.message.message_id}.wav"
     await voice_file.download_to_drive(ogg_path)
     
-    await update.message.reply_text("🔄 Optimizing audio for instant Twilio playback...")
+    await update.message.reply_text("🔄 Optimizing audio and uploading to secure CDN...")
     ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
-    subprocess.run([ffmpeg_exe, '-i', ogg_path, '-ac', '1', '-ar', '8000', '-ab', '32k', mp3_path, '-y'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run([ffmpeg_exe, '-i', ogg_path, '-ac', '1', '-ar', '8000', '-c:a', 'pcm_mulaw', wav_path, '-y'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     
-    with open(mp3_path, 'rb') as f:
-        msg = await update.message.reply_document(document=f, filename="voice.mp3", caption="Your audio is ready to be played to the hospital.")
-        
-    if msg.document:
-        file_id = msg.document.file_id
-    elif msg.audio:
-        file_id = msg.audio.file_id
-    else:
-        file_id = msg.voice.file_id
-        
-    audio_file = await context.bot.get_file(file_id)
-    context.user_data['voice_url'] = audio_file.file_path
+    # Upload to a dedicated CDN (Catbox) to fix Twilio's Telegram streaming issues
+    try:
+        with open(wav_path, 'rb') as f:
+            response = requests.post(
+                "https://catbox.moe/user/api.php",
+                data={"reqtype": "fileupload"},
+                files={"fileToUpload": f}
+            )
+        if response.status_code == 200:
+            context.user_data['voice_url'] = response.text.strip()
+            await update.message.reply_text(f"✅ Audio hosted at: {context.user_data['voice_url']}")
+        else:
+            raise Exception("CDN upload failed")
+    except Exception as e:
+        logger.error(f"Error uploading to CDN: {e}")
+        # Fallback to Telegram hosting
+        with open(wav_path, 'rb') as f:
+            msg = await update.message.reply_document(document=f, filename="voice.wav")
+        file_id = msg.document.file_id if msg.document else (msg.audio.file_id if msg.audio else msg.voice.file_id)
+        audio_file = await context.bot.get_file(file_id)
+        context.user_data['voice_url'] = audio_file.file_path
     
     os.remove(ogg_path)
-    os.remove(mp3_path)
+    os.remove(wav_path)
     
     location_button = KeyboardButton(text="📍 Share Live Location", request_location=True)
     markup = ReplyKeyboardMarkup([[location_button]], one_time_keyboard=True, resize_keyboard=True)
