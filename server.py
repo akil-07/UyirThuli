@@ -32,7 +32,7 @@ def twilio_start():
 
     # We use urllib to safely pass the details to the next gather step
     encoded_args = urllib.parse.urlencode({'name': name, 'blood_type': blood_type})
-    gather_url = f"/twilio_gather?{encoded_args}"
+    gather_url = f"/twilio_gather?{encoded_args}".replace('&', '&amp;')
 
     # Initial TwiML script
     twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
@@ -63,7 +63,7 @@ def twilio_gather():
     if not speech_result:
         # If they didn't speak, prompt them again
         encoded_args = urllib.parse.urlencode({'name': name, 'blood_type': blood_type})
-        gather_url = f"/twilio_gather?{encoded_args}"
+        gather_url = f"/twilio_gather?{encoded_args}".replace('&', '&amp;')
         twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
         <Response>
             <Gather input="speech" action="{gather_url}" method="POST" timeout="3" speechTimeout="auto">
@@ -84,7 +84,7 @@ def twilio_gather():
 
     # Next iteration loop
     encoded_args = urllib.parse.urlencode({'name': name, 'blood_type': blood_type})
-    gather_url = f"/twilio_gather?{encoded_args}"
+    gather_url = f"/twilio_gather?{encoded_args}".replace('&', '&amp;')
     
     twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
     <Response>
