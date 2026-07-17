@@ -1,3 +1,4 @@
 .env
 __pycache__/
-*.pyc
+*.ogg
+*.mp3*.pyc
