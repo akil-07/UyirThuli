@@ -27,6 +27,7 @@ TWILIO_ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID')
 TWILIO_AUTH_TOKEN = os.getenv('TWILIO_AUTH_TOKEN')
 TWILIO_PHONE_NUMBER = os.getenv('TWILIO_PHONE_NUMBER')
 MY_PHONE_NUMBER = os.getenv('MY_PHONE_NUMBER') # verified number for demo
+WEBHOOK_URL = os.getenv('WEBHOOK_URL')
 
 async def start_sos(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Starts the SOS conversation."""
@@ -147,26 +148,40 @@ async def receive_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         try:
             client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
             for idx, hospital in enumerate(hospitals):
-                # We use Twilio's TwiML to speak a message. 
                 voice_url = context.user_data.get('voice_url')
-                twiml_script = f"""
-                <Response>
-                    <Say voice="Polly.Joanna-Neural">
-                        Urgent message from Blood Radar! 
-                        A patient named {context.user_data['name']} critically needs {context.user_data['blood_type']} blood. 
-                        We are calling {hospital['name']}. Here is a voice message from the patient:
-                    </Say>
-                    <Play>{voice_url}</Play>
-                    <Say voice="Polly.Joanna-Neural">
-                        Please check your blood bank inventory immediately.
-                    </Say>
-                </Response>
-                """
-                call = client.calls.create(
-                    twiml=twiml_script,
-                    to=MY_PHONE_NUMBER, # Call the verified demo number
-                    from_=TWILIO_PHONE_NUMBER
-                )
+                
+                if WEBHOOK_URL:
+                    import urllib.parse
+                    encoded_args = urllib.parse.urlencode({
+                        'name': context.user_data['name'],
+                        'blood_type': context.user_data['blood_type'],
+                        'voice_url': voice_url
+                    })
+                    call_url = f"{WEBHOOK_URL}/twilio_start?{encoded_args}"
+                    call = client.calls.create(
+                        url=call_url,
+                        to=MY_PHONE_NUMBER,
+                        from_=TWILIO_PHONE_NUMBER
+                    )
+                else:
+                    twiml_script = f"""
+                    <Response>
+                        <Say voice="Polly.Joanna-Neural">
+                            Urgent message from Blood Radar! 
+                            A patient named {context.user_data['name']} critically needs {context.user_data['blood_type']} blood. 
+                            We are calling {hospital['name']}. Here is a voice message from the patient:
+                        </Say>
+                        <Play>{voice_url}</Play>
+                        <Say voice="Polly.Joanna-Neural">
+                            Please check your blood bank inventory immediately.
+                        </Say>
+                    </Response>
+                    """
+                    call = client.calls.create(
+                        twiml=twiml_script,
+                        to=MY_PHONE_NUMBER,
+                        from_=TWILIO_PHONE_NUMBER
+                    )
                 logger.info(f"Triggered call to {hospital['name']} (SID: {call.sid})")
                 
                 # Send an SMS Notification as well
