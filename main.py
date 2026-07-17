@@ -85,9 +85,9 @@ async def receive_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     subprocess.run([ffmpeg_exe, '-i', ogg_path, '-ac', '1', '-ar', '8000', '-c:a', 'pcm_s16le', wav_path, '-y'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     
     with open(wav_path, 'rb') as f:
-        msg = await update.message.reply_audio(audio=f, caption="Your audio is ready to be played to the hospital.")
+        msg = await update.message.reply_document(document=f, filename="voice.wav", caption="Your audio is ready to be played to the hospital.")
         
-    audio_file = await context.bot.get_file(msg.audio.file_id)
+    audio_file = await context.bot.get_file(msg.document.file_id)
     context.user_data['voice_url'] = audio_file.file_path
     
     os.remove(ogg_path)
