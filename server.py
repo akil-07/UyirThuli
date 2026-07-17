@@ -37,14 +37,14 @@ def twilio_start():
     # Initial TwiML script
     twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
     <Response>
-        <Say voice="Polly.Joanna-Neural">
+        <Say voice="alice">
             Urgent message from Blood Radar! 
             A patient named {name} critically needs {blood_type} blood. 
             Here is a voice message from the patient:
         </Say>
         <Play>{voice_url}</Play>
         <Gather input="speech" action="{gather_url}" method="POST" timeout="3" speechTimeout="auto">
-            <Say voice="Polly.Joanna-Neural">
+            <Say voice="alice">
                 Hello? Are you there? Please tell me if you have {blood_type} blood available.
             </Say>
         </Gather>
@@ -67,7 +67,7 @@ def twilio_gather():
         twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
         <Response>
             <Gather input="speech" action="{gather_url}" method="POST" timeout="3" speechTimeout="auto">
-                <Say voice="Polly.Joanna-Neural">I didn't catch that. Do you have {blood_type} blood available?</Say>
+                <Say voice="alice">I didn't catch that. Do you have {blood_type} blood available?</Say>
             </Gather>
         </Response>
         """
@@ -89,7 +89,7 @@ def twilio_gather():
     twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
     <Response>
         <Gather input="speech" action="{gather_url}" method="POST" timeout="3" speechTimeout="auto">
-            <Say voice="Polly.Joanna-Neural">{ai_text}</Say>
+            <Say voice="alice">{ai_text}</Say>
         </Gather>
     </Response>
     """
