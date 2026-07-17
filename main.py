@@ -82,7 +82,7 @@ async def receive_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     
     await update.message.reply_text("🔄 Processing your voice message...")
     ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
-    subprocess.run([ffmpeg_exe, '-i', ogg_path, mp3_path, '-y'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run([ffmpeg_exe, '-i', ogg_path, '-ac', '1', '-ar', '8000', mp3_path, '-y'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     
     with open(mp3_path, 'rb') as f:
         msg = await update.message.reply_audio(audio=f, caption="Your audio is ready to be played to the hospital.")
