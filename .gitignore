@@ -1,4 +1,7 @@
 .env
 __pycache__/
 *.ogg
-*.mp3*.pyc
+*.wav
+*.mp3
+tunnel.log
+*.pyc
