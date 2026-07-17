@@ -22,6 +22,7 @@ You just played a voice note from the patient to the hospital staff.
 The hospital staff is now speaking to you. You must answer them briefly, politely, and urgently.
 Keep your responses very short (1-2 sentences) so it flows naturally on a phone call.
 Your goal is to figure out if they have {blood_type} blood in stock, and tell them you will inform the patient.
+Once you have your answer (either yes or no), you MUST end your final response with exactly the word "Goodbye."
 """
 
 @app.route('/twilio_start', methods=['GET', 'POST'])
@@ -85,7 +86,7 @@ def twilio_gather():
         ai_text = response.text.strip().replace('"', '').replace('*', '').replace('&', 'and').replace('<', '').replace('>', '')
     except Exception as e:
         print(f"Gemini API Error: {e}")
-        ai_text = "I'm having trouble connecting to my system. I will notify the patient anyway. Thank you."
+        ai_text = "I'm having trouble connecting to my system. I will notify the patient anyway. Goodbye."
 
     # Send transcript to Telegram
     if chat_id and os.getenv('TELEGRAM_BOT_TOKEN'):
@@ -100,13 +101,21 @@ def twilio_gather():
     encoded_args = urllib.parse.urlencode({'name': name, 'blood_type': blood_type, 'chat_id': chat_id, 'hospital_name': hospital_name})
     gather_url = f"/twilio_gather?{encoded_args}".replace('&', '&amp;')
     
-    twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
-    <Response>
-        <Gather input="speech" action="{gather_url}" method="POST" timeout="3" speechTimeout="auto">
+    if "goodbye" in ai_text.lower():
+        twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
+        <Response>
             <Say voice="alice">{ai_text}</Say>
-        </Gather>
-    </Response>
-    """
+            <Hangup/>
+        </Response>
+        """
+    else:
+        twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
+        <Response>
+            <Gather input="speech" action="{gather_url}" method="POST" timeout="3" speechTimeout="auto">
+                <Say voice="alice">{ai_text}</Say>
+            </Gather>
+        </Response>
+        """
     return twiml, 200, {'Content-Type': 'text/xml'}
 
 if __name__ == '__main__':
