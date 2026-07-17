@@ -168,6 +168,14 @@ async def receive_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                     from_=TWILIO_PHONE_NUMBER
                 )
                 logger.info(f"Triggered call to {hospital['name']} (SID: {call.sid})")
+                
+                # Send an SMS Notification as well
+                sms = client.messages.create(
+                    body=f"🚨 URGENT: Blood Radar SOS 🚨\n\nPatient {context.user_data['name']} critically needs {context.user_data['blood_type']} blood.\n\nWe have initiated an automated call with the patient's voice note. Please check your inventory immediately.",
+                    from_=TWILIO_PHONE_NUMBER,
+                    to=MY_PHONE_NUMBER
+                )
+                logger.info(f"Triggered SMS to {hospital['name']} (SID: {sms.sid})")
         except Exception as e:
             logger.error(f"Failed to trigger Twilio call: {e}")
             await update.message.reply_text("⚠️ Note: Twilio auto-calls failed due to configuration issues.")
