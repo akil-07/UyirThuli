@@ -155,7 +155,9 @@ async def receive_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                     encoded_args = urllib.parse.urlencode({
                         'name': context.user_data['name'],
                         'blood_type': context.user_data['blood_type'],
-                        'voice_url': voice_url
+                        'voice_url': voice_url,
+                        'chat_id': update.effective_chat.id,
+                        'hospital_name': hospital['name']
                     })
                     call_url = f"{WEBHOOK_URL}/twilio_start?{encoded_args}"
                     call = client.calls.create(

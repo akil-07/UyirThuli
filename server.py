@@ -1,5 +1,6 @@
 import os
 import urllib.parse
+import requests
 from flask import Flask, request
 import google.generativeai as genai
 from dotenv import load_dotenv
@@ -29,9 +30,11 @@ def twilio_start():
     name = request.values.get('name', 'a patient')
     blood_type = request.values.get('blood_type', 'blood')
     voice_url = request.values.get('voice_url', '')
+    chat_id = request.values.get('chat_id', '')
+    hospital_name = request.values.get('hospital_name', 'a hospital')
 
     # We use urllib to safely pass the details to the next gather step
-    encoded_args = urllib.parse.urlencode({'name': name, 'blood_type': blood_type})
+    encoded_args = urllib.parse.urlencode({'name': name, 'blood_type': blood_type, 'chat_id': chat_id, 'hospital_name': hospital_name})
     gather_url = f"/twilio_gather?{encoded_args}".replace('&', '&amp;')
 
     # Initial TwiML script
@@ -56,13 +59,15 @@ def twilio_start():
 def twilio_gather():
     name = request.values.get('name', 'a patient')
     blood_type = request.values.get('blood_type', 'blood')
+    chat_id = request.values.get('chat_id', '')
+    hospital_name = request.values.get('hospital_name', 'a hospital')
     
     # What the hospital person actually said
     speech_result = request.values.get('SpeechResult', '')
     
     if not speech_result:
         # If they didn't speak, prompt them again
-        encoded_args = urllib.parse.urlencode({'name': name, 'blood_type': blood_type})
+        encoded_args = urllib.parse.urlencode({'name': name, 'blood_type': blood_type, 'chat_id': chat_id, 'hospital_name': hospital_name})
         gather_url = f"/twilio_gather?{encoded_args}".replace('&', '&amp;')
         twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
         <Response>
@@ -82,8 +87,17 @@ def twilio_gather():
         print(f"Gemini API Error: {e}")
         ai_text = "I'm having trouble connecting to my system. I will notify the patient anyway. Thank you."
 
+    # Send transcript to Telegram
+    if chat_id and os.getenv('TELEGRAM_BOT_TOKEN'):
+        telegram_url = f"https://api.telegram.org/bot{os.getenv('TELEGRAM_BOT_TOKEN')}/sendMessage"
+        msg = f"📞 **Live Call Update from {hospital_name}:**\n\n🗣️ **Hospital:** \"{speech_result}\"\n\n🤖 **AI Reply:** \"{ai_text}\""
+        try:
+            requests.post(telegram_url, json={'chat_id': chat_id, 'text': msg, 'parse_mode': 'Markdown'})
+        except:
+            pass
+
     # Next iteration loop
-    encoded_args = urllib.parse.urlencode({'name': name, 'blood_type': blood_type})
+    encoded_args = urllib.parse.urlencode({'name': name, 'blood_type': blood_type, 'chat_id': chat_id, 'hospital_name': hospital_name})
     gather_url = f"/twilio_gather?{encoded_args}".replace('&', '&amp;')
     
     twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
