@@ -99,7 +99,8 @@ async def receive_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
             response = requests.post(
                 "https://catbox.moe/user/api.php",
                 data={"reqtype": "fileupload"},
-                files={"fileToUpload": f}
+                files={"fileToUpload": f},
+                timeout=15
             )
         if response.status_code == 200:
             context.user_data['voice_url'] = response.text.strip()
