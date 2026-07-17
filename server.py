@@ -40,20 +40,19 @@ def twilio_start():
 
     # Initial TwiML script
     twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
-    <Response>
+<Response>
+    <Say voice="alice">
+        Urgent message from Blood Radar! 
+        A patient named {name} critically needs {blood_type} blood. 
+        Here is a voice message from the patient:
+    </Say>
+    <Play>{voice_url}</Play>
+    <Gather input="speech" action="{gather_url}" method="POST" timeout="3" speechTimeout="auto">
         <Say voice="alice">
-            Urgent message from Blood Radar! 
-            A patient named {name} critically needs {blood_type} blood. 
-            Here is a voice message from the patient:
+            Hello? Are you there? Please tell me if you have {blood_type} blood available.
         </Say>
-        <Play>{voice_url}</Play>
-        <Gather input="speech" action="{gather_url}" method="POST" timeout="3" speechTimeout="auto">
-            <Say voice="alice">
-                Hello? Are you there? Please tell me if you have {blood_type} blood available.
-            </Say>
-        </Gather>
-    </Response>
-    """
+    </Gather>
+</Response>""".strip()
     return twiml, 200, {'Content-Type': 'text/xml'}
 
 @app.route('/twilio_gather', methods=['POST'])
@@ -71,12 +70,11 @@ def twilio_gather():
         encoded_args = urllib.parse.urlencode({'name': name, 'blood_type': blood_type, 'chat_id': chat_id, 'hospital_name': hospital_name})
         gather_url = f"/twilio_gather?{encoded_args}".replace('&', '&amp;')
         twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
-        <Response>
-            <Gather input="speech" action="{gather_url}" method="POST" timeout="3" speechTimeout="auto">
-                <Say voice="alice">I didn't catch that. Do you have {blood_type} blood available?</Say>
-            </Gather>
-        </Response>
-        """
+<Response>
+    <Gather input="speech" action="{gather_url}" method="POST" timeout="3" speechTimeout="auto">
+        <Say voice="alice">I didn't catch that. Do you have {blood_type} blood available?</Say>
+    </Gather>
+</Response>""".strip()
         return twiml, 200, {'Content-Type': 'text/xml'}
 
     try:
@@ -103,19 +101,18 @@ def twilio_gather():
     
     if "goodbye" in ai_text.lower():
         twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
-        <Response>
-            <Say voice="alice">{ai_text}</Say>
-            <Hangup/>
-        </Response>
-        """
+<Response>
+    <Say voice="alice">{ai_text}</Say>
+    <Hangup/>
+</Response>""".strip()
     else:
         twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
-        <Response>
-            <Gather input="speech" action="{gather_url}" method="POST" timeout="3" speechTimeout="auto">
-                <Say voice="alice">{ai_text}</Say>
-            </Gather>
-        </Response>
-        """
+<Response>
+    <Gather input="speech" action="{gather_url}" method="POST" timeout="3" speechTimeout="auto">
+        <Say voice="alice">{ai_text}</Say>
+    </Gather>
+</Response>""".strip()
+    
     return twiml, 200, {'Content-Type': 'text/xml'}
 
 if __name__ == '__main__':
