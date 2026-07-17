@@ -9,9 +9,17 @@ import subprocess
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler, CallbackQueryHandler
 from twilio.rest import Client
+from supabase import create_client, Client as SupabaseClient
 
 # Load environment variables
 load_dotenv()
+
+# Initialize Supabase
+SUPABASE_URL = os.getenv('SUPABASE_URL')
+SUPABASE_KEY = os.getenv('SUPABASE_KEY')
+supabase: SupabaseClient = None
+if SUPABASE_URL and SUPABASE_KEY:
+    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # Enable logging
 logging.basicConfig(
@@ -130,6 +138,54 @@ async def receive_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         reply_markup=ReplyKeyboardRemove()
     )
     
+    blood_type = context.user_data['blood_type']
+    name = context.user_data['name']
+    
+    # 1. Search Supabase Platform First
+    platform_hospitals = []
+    if supabase:
+        try:
+            # Get all registered blood banks
+            response = supabase.table('blood_banks').select('*').execute()
+            blood_banks = response.data
+            
+            for bank in blood_banks:
+                bank_id = bank['id']
+                
+                # Push the request to their Dashboard
+                request_data = {
+                    'blood_bank_id': bank_id,
+                    'name': name,
+                    'blood_type': blood_type,
+                    'distance_km': round(abs(bank.get('lat', 0) - user_location.latitude)*111 + abs(bank.get('lng', 0) - user_location.longitude)*111, 1),
+                    'status': 'pending'
+                }
+                supabase.table('requests').insert(request_data).execute()
+                
+                # Check their stock
+                stock_res = supabase.table('stock').select('*').eq('blood_bank_id', bank_id).execute()
+                if stock_res.data:
+                    stock = stock_res.data[0]
+                    bt_map = {
+                        "A+": "a_pos", "A-": "a_neg", "B+": "b_pos", "B-": "b_neg",
+                        "AB+": "ab_pos", "AB-": "ab_neg", "O+": "o_pos", "O-": "o_neg"
+                    }
+                    col_name = bt_map.get(blood_type)
+                    if col_name and stock.get(col_name, 0) > 0:
+                        platform_hospitals.append(bank)
+        except Exception as e:
+            logger.error(f"Supabase error: {e}")
+
+    # If we found it instantly on the platform, don't call Twilio
+    if platform_hospitals:
+        msg = f"🎉 **INSTANT MATCH!**\n\nThe following partnered blood banks have `{blood_type}` in stock right now:\n\n"
+        for bank in platform_hospitals:
+            msg += f"🏥 {bank['name']}\n📍 {bank.get('location', 'Address unknown')}\n📞 {bank.get('phone', 'Phone unknown')}\n\n"
+        msg += "We have sent your emergency request to their live dashboard. Please contact them directly!"
+        await update.message.reply_text(msg, parse_mode='Markdown')
+        return ConversationHandler.END
+
+    # 2. Fallback to OpenStreetMap Twilio Calls
     hospitals = get_nearby_hospitals(user_location.latitude, user_location.longitude)
     
     if not hospitals:
@@ -186,13 +242,16 @@ async def receive_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                     )
                 logger.info(f"Triggered call to {hospital['name']} (SID: {call.sid})")
                 
-                # Send an SMS Notification as well
-                sms = client.messages.create(
-                    body=f"🚨 URGENT: Blood Radar SOS 🚨\n\nPatient {context.user_data['name']} critically needs {context.user_data['blood_type']} blood.\n\nWe have initiated an automated call with the patient's voice note. Please check your inventory immediately.",
-                    from_=TWILIO_PHONE_NUMBER,
-                    to=MY_PHONE_NUMBER
-                )
-                logger.info(f"Triggered SMS to {hospital['name']} (SID: {sms.sid})")
+                try:
+                    # Send an SMS Notification as well
+                    sms = client.messages.create(
+                        body=f"🚨 URGENT: Blood Radar SOS 🚨\n\nPatient {context.user_data['name']} critically needs {context.user_data['blood_type']} blood.\n\nWe have initiated an automated call with the patient's voice note. Please check your inventory immediately.",
+                        from_=TWILIO_PHONE_NUMBER,
+                        to=MY_PHONE_NUMBER
+                    )
+                    logger.info(f"Triggered SMS to {hospital['name']} (SID: {sms.sid})")
+                except Exception as e:
+                    logger.warning(f"SMS limit likely reached, skipping SMS: {e}")
         except Exception as e:
             logger.error(f"Failed to trigger Twilio call: {e}")
             await update.message.reply_text("⚠️ Note: Twilio auto-calls failed due to configuration issues.")
@@ -299,6 +358,7 @@ def main():
     application = (
         ApplicationBuilder()
         .token(token)
+        .http_version("1.1")
         .connect_timeout(60.0)
         .read_timeout(60.0)
         .write_timeout(60.0)
