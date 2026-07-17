@@ -77,15 +77,15 @@ async def receive_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     voice_file = await update.message.voice.get_file()
     
     ogg_path = f"voice_{update.message.message_id}.ogg"
-    mp3_path = f"voice_{update.message.message_id}.mp3"
+    wav_path = f"voice_{update.message.message_id}.wav"
     await voice_file.download_to_drive(ogg_path)
     
-    await update.message.reply_text("🔄 Optimizing audio for instant Twilio playback...")
+    await update.message.reply_text("🔄 Optimizing audio for native telephone quality...")
     ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
-    subprocess.run([ffmpeg_exe, '-i', ogg_path, '-ac', '1', '-ar', '8000', '-ab', '32k', mp3_path, '-y'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run([ffmpeg_exe, '-i', ogg_path, '-ac', '1', '-ar', '8000', '-c:a', 'pcm_mulaw', wav_path, '-y'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     
-    with open(mp3_path, 'rb') as f:
-        msg = await update.message.reply_document(document=f, filename="voice.mp3", caption="Your audio is ready to be played to the hospital.")
+    with open(wav_path, 'rb') as f:
+        msg = await update.message.reply_document(document=f, filename="voice.wav", caption="Your audio is ready to be played to the hospital.")
         
     if msg.document:
         file_id = msg.document.file_id
@@ -98,7 +98,7 @@ async def receive_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     context.user_data['voice_url'] = audio_file.file_path
     
     os.remove(ogg_path)
-    os.remove(mp3_path)
+    os.remove(wav_path)
     
     location_button = KeyboardButton(text="📍 Share Live Location", request_location=True)
     markup = ReplyKeyboardMarkup([[location_button]], one_time_keyboard=True, resize_keyboard=True)
