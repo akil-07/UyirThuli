@@ -83,7 +83,7 @@ def twilio_gather():
         # Generate conversational response with Gemini
         prompt = SYSTEM_PROMPT.format(name=name, blood_type=blood_type)
         response = model.generate_content(f"{prompt}\n\nHospital Staff Said: {speech_result}\n\nAI Response:")
-        ai_text = response.text.strip().replace('"', '').replace('*', '').replace('&', 'and').replace('<', '').replace('>', '')
+        ai_text = response.text.strip().encode('ascii', 'ignore').decode('ascii').replace('"', '').replace('*', '').replace('&', 'and').replace('<', '').replace('>', '')
     except Exception as e:
         print(f"Gemini API Error: {e}")
         ai_text = "I'm having trouble connecting to my system. I will notify the patient anyway. Goodbye."
