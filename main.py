@@ -87,7 +87,14 @@ async def receive_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     with open(mp3_path, 'rb') as f:
         msg = await update.message.reply_document(document=f, filename="voice.mp3", caption="Your audio is ready to be played to the hospital.")
         
-    audio_file = await context.bot.get_file(msg.document.file_id)
+    if msg.document:
+        file_id = msg.document.file_id
+    elif msg.audio:
+        file_id = msg.audio.file_id
+    else:
+        file_id = msg.voice.file_id
+        
+    audio_file = await context.bot.get_file(file_id)
     context.user_data['voice_url'] = audio_file.file_path
     
     os.remove(ogg_path)
