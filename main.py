@@ -4,6 +4,9 @@ import requests
 import json
 import asyncio
 from dotenv import load_dotenv
+from pydub import AudioSegment
+import imageio_ffmpeg
+AudioSegment.converter = imageio_ffmpeg.get_ffmpeg_exe()
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler, CallbackQueryHandler
 from twilio.rest import Client
@@ -18,7 +21,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # State definitions for ConversationHandler
-ASK_NAME, ASK_BLOOD_TYPE, ASK_URGENCY, ASK_LOCATION = range(4)
+ASK_NAME, ASK_BLOOD_TYPE, ASK_URGENCY, ASK_VOICE, ASK_LOCATION = range(5)
 
 # Load Twilio config
 TWILIO_ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID')
@@ -62,15 +65,40 @@ async def ask_blood_type(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     return ASK_URGENCY
 
 async def ask_urgency(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Stores urgency and asks for live location."""
+    """Stores urgency and asks for a voice message."""
     context.user_data['urgency'] = update.message.text
     
-    # Request Location Keyboard
+    await update.message.reply_text(
+        "Understood. Please record a short voice message (hold the microphone button) explaining your situation. We will play this directly to the hospital."
+    )
+    return ASK_VOICE
+
+async def receive_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Downloads the voice message, converts it to MP3, uploads to get URL, and asks for location."""
+    voice_file = await update.message.voice.get_file()
+    
+    ogg_path = f"voice_{update.message.message_id}.ogg"
+    mp3_path = f"voice_{update.message.message_id}.mp3"
+    await voice_file.download_to_drive(ogg_path)
+    
+    await update.message.reply_text("🔄 Processing your voice message...")
+    audio = AudioSegment.from_ogg(ogg_path)
+    audio.export(mp3_path, format="mp3")
+    
+    with open(mp3_path, 'rb') as f:
+        msg = await update.message.reply_audio(audio=f, caption="Your audio is ready to be played to the hospital.")
+        
+    mp3_file = await context.bot.get_file(msg.audio.file_id)
+    context.user_data['voice_url'] = mp3_file.file_path
+    
+    os.remove(ogg_path)
+    os.remove(mp3_path)
+    
     location_button = KeyboardButton(text="📍 Share Live Location", request_location=True)
     markup = ReplyKeyboardMarkup([[location_button]], one_time_keyboard=True, resize_keyboard=True)
     
     await update.message.reply_text(
-        "Understood. Please share your Location using the button below so I can find the nearest hospitals.",
+        "Perfect. Now please share your Location using the button below to find nearest hospitals.",
         reply_markup=markup
     )
     return ASK_LOCATION
@@ -105,13 +133,17 @@ async def receive_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
             for idx, hospital in enumerate(hospitals):
                 # We use Twilio's TwiML to speak a message. 
+                voice_url = context.user_data.get('voice_url')
                 twiml_script = f"""
                 <Response>
                     <Say voice="Polly.Joanna-Neural">
                         Urgent message from Blood Radar! 
-                        A patient named {context.user_data['name']}, critically needs {context.user_data['blood_type']} blood. 
-                        We are calling {hospital['name']}. 
-                        Please check your blood bank inventory, immediately.
+                        A patient named {context.user_data['name']} critically needs {context.user_data['blood_type']} blood. 
+                        We are calling {hospital['name']}. Here is a voice message from the patient:
+                    </Say>
+                    <Play>{voice_url}</Play>
+                    <Say voice="Polly.Joanna-Neural">
+                        Please check your blood bank inventory immediately.
                     </Say>
                 </Response>
                 """
@@ -239,6 +271,7 @@ def main():
             ASK_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_name)],
             ASK_BLOOD_TYPE: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_blood_type)],
             ASK_URGENCY: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_urgency)],
+            ASK_VOICE: [MessageHandler(filters.VOICE, receive_voice)],
             ASK_LOCATION: [MessageHandler(filters.LOCATION, receive_location)],
         },
         fallbacks=[]
