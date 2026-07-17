@@ -172,11 +172,9 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 def get_nearby_hospitals(lat: float, lon: float, radius: int = 15000) -> list:
     """Queries OpenStreetMap Overpass API for hospitals within `radius` meters."""
     overpass_url = "https://overpass-api.de/api/interpreter"
-    overpass_query = f"""
-    [out:json][timeout:25];
-    node["amenity"="hospital"](around:{radius},{lat},{lon});
-    out;
-    """
+    overpass_query = f"""[out:json][timeout:25];
+node["amenity"="hospital"](around:{radius},{lat},{lon});
+out;"""
     hospitals = []
     try:
         headers = {'User-Agent': 'BloodRadarBot/1.0'}
